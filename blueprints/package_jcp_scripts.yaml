@@ -1,0 +1,188 @@
+## blueprints/package_jcp_scripts.yaml
+# Put this file into your HA config under `config/packages/` (enable packages in configuration.yaml)
+# It defines:
+#  - Generic scripts (re-usable for any blind)
+#  - Example helpers you can duplicate per blind
+
+```
+# =====================
+# Jalousie Control Plus – Generic Scripts & Example Helpers
+# =====================
+
+# --- Example helpers for ONE blind (duplicate per blind) ---
+input_number:
+  jcp_blind1_last_position:
+    name: JCP Blind1 Last Position
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    icon: mdi:percent
+    mode: box
+
+  jcp_blind1_last_tilt:
+    name: JCP Blind1 Last Tilt
+    min: 0
+    max: 180
+    step: 15
+    unit_of_measurement: "°"
+    icon: mdi:angle-acute
+    mode: slider
+
+# --- Generic scripts (re-use for any blind) ---
+script:
+  # Turn a relay on for a duration (ms), then off. Safety waits are supported.
+  jcp_pulse:
+    alias: JCP Pulse Relay
+    mode: parallel
+    fields:
+      switch_entity:
+        description: Up or Down switch entity_id
+        example: switch.blind1_up
+      duration_ms:
+        description: Pulse duration in milliseconds
+        example: 250
+      safety_ms:
+        description: Optional safety pause before actuation (ms)
+        example: 150
+    sequence:
+      - choose:
+          - conditions: "{{ safety_ms|int > 0 }}"
+            sequence:
+              - delay: "{{ (safety_ms|int / 1000) | float }}"
+      - service: switch.turn_on
+        target:
+          entity_id: "{{ switch_entity }}"
+      - delay: "{{ (duration_ms|int / 1000) | float }}"
+      - service: switch.turn_off
+        target:
+          entity_id: "{{ switch_entity }}"
+
+  # Move blind to absolute position [0..100] using time-based calculation.
+  jcp_move_to_percent:
+    alias: JCP Move To Percent
+    mode: parallel
+    fields:
+      up_switch:
+        description: Switch entity that drives UP movement
+      down_switch:
+        description: Switch entity that drives DOWN movement
+      full_up_ms:
+        description: Time for full travel from bottom (0%) to top (100%) in ms
+      full_down_ms:
+        description: Time for full travel from top (100%) to bottom (0%) in ms
+      last_position_helper:
+        description: input_number that stores last known position (0..100)
+      target_percent:
+        description: Desired absolute position (0..100)
+      safety_ms:
+        description: Pause between direction changes (ms), default 150
+    sequence:
+      - variables:
+          target: "{{ target_percent | int }}"
+          safety: "{{ safety_ms | default(150) | int }}"
+          current: "{{ states(last_position_helper) | float(default=0) }}"
+          going_up: "{{ target > current }}"
+          distance: "{{ (target - current) if (target > current) else (current - target) }}"
+          # Calculate duration proportional to distance
+          duration_ms: >
+            {% if going_up %}
+            {{ (full_up_ms | int) * (distance | float) / 100.0 | round(0) }}
+            {% else %}
+            {{ (full_down_ms | int) * (distance | float) / 100.0 | round(0) }}
+            {% endif %}
+      - choose:
+          - conditions: "{{ duration_ms | int > 0 }}"
+            sequence:
+              - service: script.jcp_pulse
+                data:
+                  switch_entity: "{{ up_switch if going_up else down_switch }}"
+                  duration_ms: "{{ duration_ms | int }}"
+                  safety_ms: "{{ safety }}"
+      - service: input_number.set_value
+        data:
+          value: "{{ target }}"
+        target:
+          entity_id: "{{ last_position_helper }}"
+
+  # Tilt control: move lamellas to absolute angle [0..180] in 15° steps.
+  jcp_tilt_to_angle:
+    alias: JCP Tilt To Angle
+    mode: parallel
+    fields:
+      up_switch:
+        description: Switch entity that tilts in positive direction
+      down_switch:
+        description: Switch entity that tilts in negative direction
+      tilt_ms_per_15:
+        description: Pulse duration for 15° tilt step in ms
+      last_tilt_helper:
+        description: input_number that stores last known tilt angle (0..180)
+      target_angle:
+        description: Desired absolute tilt angle (0..180)
+      safety_ms:
+        description: Pause between direction changes (ms), default 120
+    sequence:
+      - variables:
+          target: "{{ (target_angle | int // 15) * 15 }}"  # snap to 15°
+          safety: "{{ safety_ms | default(120) | int }}"
+          current: "{{ (states(last_tilt_helper) | int(default=0) // 15) * 15 }}"
+          going_up: "{{ target > current }}"
+          steps: "{{ (target - current) | abs // 15 }}"
+          duration_ms: "{{ (tilt_ms_per_15 | int) * (steps | int) }}"
+      - choose:
+          - conditions: "{{ steps | int > 0 }}"
+            sequence:
+              - service: script.jcp_pulse
+                data:
+                  switch_entity: "{{ up_switch if going_up else down_switch }}"
+                  duration_ms: "{{ duration_ms | int }}"
+                  safety_ms: "{{ safety }}"
+      - service: input_number.set_value
+        data:
+          value: "{{ target }}"
+        target:
+          entity_id: "{{ last_tilt_helper }}"
+
+  # Convenience: fully open (position 100) or close (position 0)
+  jcp_open:
+    alias: JCP Open (100%)
+    mode: parallel
+    fields:
+      up_switch: {}
+      down_switch: {}
+      full_up_ms: {}
+      full_down_ms: {}
+      last_position_helper: {}
+      safety_ms: {}
+    sequence:
+      - service: script.jcp_move_to_percent
+        data:
+          up_switch: "{{ up_switch }}"
+          down_switch: "{{ down_switch }}"
+          full_up_ms: "{{ full_up_ms }}"
+          full_down_ms: "{{ full_down_ms }}"
+          last_position_helper: "{{ last_position_helper }}"
+          target_percent: 100
+          safety_ms: "{{ safety_ms | default(150) }}"
+
+  jcp_close:
+    alias: JCP Close (0%)
+    mode: parallel
+    fields:
+      up_switch: {}
+      down_switch: {}
+      full_up_ms: {}
+      full_down_ms: {}
+      last_position_helper: {}
+      safety_ms: {}
+    sequence:
+      - service: script.jcp_move_to_percent
+        data:
+          up_switch: "{{ up_switch }}"
+          down_switch: "{{ down_switch }}"
+          full_up_ms: "{{ full_up_ms }}"
+          full_down_ms: "{{ full_down_ms }}"
+          last_position_helper: "{{ last_position_helper }}"
+          target_percent: 0
+          safety_ms: "{{ safety_ms | default(150) }}"
