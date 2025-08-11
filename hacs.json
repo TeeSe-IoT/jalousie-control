@@ -1,6 +1,5 @@
 {
-  "name": "Jalousie Control Plus",
-  "content_in_root": true,
-  "filename": "jalousie-control-plus.js",
+  "name": "Jalousie Control",
+  "filename": "jalousie-control.js",
   "render_readme": true
 }
