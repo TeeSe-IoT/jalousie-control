@@ -1,16 +1,16 @@
 ---
 
-## www/jalousie-control-plus.js
+## www/jalousie-control.js
 # Add this resource in your Lovelace resources (or via HACS). Then use the card in a dashboard.
 
 ```
-class JalousieControlPlus extends HTMLElement {
+class JalousieControl extends HTMLElement {
   static getConfigElement() { return document.createElement("jcp-card-editor"); }
   static getStubConfig() {
     return {
-      title: "Jalousie Control Plus",
-      up_switch: "switch.jalousie_up",
-      down_switch: "switch.jalousie_down",
+      title: "Jalousie Control",
+      up_switch: "switch.shellyswitch25_c8c9a375ab78_channel_1",
+      down_switch: "switch.shellyswitch25_c8c9a375ab78_channel_2",
       last_position_helper: "input_number.jcp_blind1_last_position",
       last_tilt_helper: "input_number.jcp_blind1_last_tilt",
       full_up_ms: 18000,
@@ -169,7 +169,7 @@ class JalousieControlPlus extends HTMLElement {
   }
 }
 
-customElements.define("jalousie-control-plus", JalousieControlPlus);
+customElements.define("jalousie-control", JalousieControl);
 
 // Simple editor (optional)
 class JcpCardEditor extends HTMLElement {
