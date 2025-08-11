@@ -6,7 +6,7 @@
 
 ```
 # =====================
-# Jalousie Control Plus – Generic Scripts & Example Helpers
+# Jalousie Control – Generic Scripts & Example Helpers
 # =====================
 
 # --- Example helpers for ONE blind (duplicate per blind) ---
@@ -38,7 +38,7 @@ script:
     fields:
       switch_entity:
         description: Up or Down switch entity_id
-        example: switch.blind1_up
+        example: switch.shellyswitch25_c8c9a375ab78_channel_1
       duration_ms:
         description: Pulse duration in milliseconds
         example: 250
