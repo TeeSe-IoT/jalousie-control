@@ -224,3 +224,11 @@ class JcpCardEditor extends HTMLElement {
   }
 }
 customElements.define("jcp-card-editor", JcpCardEditor);
+customElements.define("jcp-card-editor", JcpCardEditor);
+// optional: damit sie im visuellen Karten-Dialog auftaucht
+window.customCards = window.customCards || [];
+window.customCards.push({
+  type: "jalousie-control",
+  name: "Jalousie Karte (Demo)",
+  description: "Minimal-Karte zum Überprüfen des Ladens."
+});
